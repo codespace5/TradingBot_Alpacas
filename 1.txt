@@ -1,0 +1,22 @@
+I want build the interface for trading bot using pyqt5.
+There is 2 window.
+First window in login page.
+user name = "123" and password is "123".
+If username and password is correct, it will run main window.
+
+There is 3 Tab page in main windown.
+First tab page is setting for the strategy .
+There are 4 input item.
+symbol, amount, profit price, and Loss price
+And there is start and stop button for trading bot.
+Please place label into left and input item into right
+There is start and stop button.
+Second page is for order list.
+Third page is to used to show my profile data of trading accont.
+
+And I want to use css to build the beaufile interface.
+For example, I want to set the color start and stop button of first page into blue.
+And the background color is grey.
+I want to build responsive interface.
+So I want control the window size using mouse
+Please submit python code.

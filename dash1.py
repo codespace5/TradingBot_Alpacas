@@ -1,0 +1,410 @@
+import sys
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QTabWidget, QGridLayout, QSizePolicy, QComboBox, QMessageBox
+from PyQt5.QtGui import QPalette, QColor
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QMessageBox
+
+import alpaca_trade_api as tradeapi
+from alpaca.data.timeframe import TimeFrame
+from datetime import datetime
+from alpaca.data.requests import CryptoBarsRequest
+from alpaca.trading.client import TradingClient
+from alpaca.trading.requests import MarketOrderRequest
+from alpaca.trading.requests import StopOrderRequest, StopLimitOrderRequest
+from alpaca.trading.enums import OrderSide, TimeInForce
+from alpaca.trading.requests import LimitOrderRequest
+from alpaca.data.historical import CryptoHistoricalDataClient
+from alpaca.data.requests import CryptoLatestQuoteRequest
+import datetime
+import pandas as pd
+import openai
+
+import requests
+
+base_url="https://paper-api.alpaca.markets"
+
+api = tradeapi.REST('PKH98HD6M9O7OBQE107O', 'EjxanHRx46ihNeN643WMaODU8oCE5D1ZRJ4dVVJ4', base_url, api_version='v2')
+trading_client = TradingClient('PKH98HD6M9O7OBQE107O', 'EjxanHRx46ihNeN643WMaODU8oCE5D1ZRJ4dVVJ4', paper=True)
+openai_key = "sgggggggggggggggggk-yk4TIBiKckoes" "sctyhU5T3BlbkFJz68IXN6mOfDhFkAXGkG3"
+
+account = api.get_account()
+
+active_assets=api.list_assets(status='active')
+
+
+Bot_status = True
+quantity = 0.0134
+symbol = "BTC/USD"
+strategy = ""
+stop_loss = 123
+limit = 123
+
+
+
+class LoginPage(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Login Page")
+        self.resize(300, 150)
+
+        # Create the username and password labels, and input fields
+        self.username_label = QLabel("Username:")
+        self.username_input = QLineEdit()
+        self.password_label = QLabel("Password:")
+        self.password_input = QLineEdit()
+        self.password_input.setEchoMode(QLineEdit.Password)
+
+        # Create the login button
+        self.login_button = QPushButton("Login")
+        self.login_button.clicked.connect(self.login)
+
+        # Create a layout and add widgets to it
+        layout = QVBoxLayout()
+        layout.addWidget(self.username_label)
+        layout.addWidget(self.username_input)
+        layout.addWidget(self.password_label)
+        layout.addWidget(self.password_input)
+        layout.addWidget(self.login_button)
+
+        self.setLayout(layout)
+
+    def login(self):
+        username = self.username_input.text()
+        password = self.password_input.text()
+
+        if username == "123" and password == "123":
+            # Successful login
+            self.hide()  # Hide the login page
+            self.open_main_window()
+        else:
+            # Failed login
+            QMessageBox.warning(self, "Login Failed", "Invalid username or password.")
+
+    def open_main_window(self):
+        self.main_window = MainWindow()
+        self.main_window.show()
+
+
+class MainWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Main Window")
+        self.resize(600, 400)
+
+        # Create a tab widget
+        self.tab_widget = QTabWidget(self)
+        self.tab_widget.setGeometry(0, 0, self.width(), self.height())
+
+        # Create the strategy settings tab
+        self.strategy_tab = QWidget()
+        self.tab_widget.addTab(self.strategy_tab, "Strategy Settings")
+
+        # Create the order list tab
+        self.order_tab = QWidget()
+        self.tab_widget.addTab(self.order_tab, "Order List")
+
+        # Create the profile tab
+        self.profile_tab = QWidget()
+        self.tab_widget.addTab(self.profile_tab, "Profile")
+
+        # Add widgets to the strategy settings tab
+        self.strategy_layout = QGridLayout(self.strategy_tab)
+
+        self.symbol_label = QLabel("Symbol:")
+        # self.symbol_input = QLineEdit()
+        self.symbol_combo = QComboBox()
+        self.symbol_combo.addItems(['BTC/USD', 'ETH/USD', 'LTC/USD'])
+
+        self.amount_label = QLabel("Amount:")
+        self.amount_input = QLineEdit()
+        self.amount_input.setText("0.0134")
+
+        self.profit_price_label = QLabel("Profit Price:")
+        self.profit_price_input = QLineEdit()
+        self.profit_price_input.setText("5")
+
+        self.loss_price_label = QLabel("Loss Price:")
+        self.loss_price_input = QLineEdit()
+        self.loss_price_input.setText("3")
+
+        self.start_button = QPushButton("Start")
+        self.stop_button = QPushButton("Stop")
+
+        self.start_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.stop_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        self.symbol_label.setAlignment(Qt.AlignCenter)
+        self.amount_label.setAlignment(Qt.AlignCenter)
+        self.profit_price_label.setAlignment(Qt.AlignCenter)
+        self.loss_price_label.setAlignment(Qt.AlignCenter)
+
+        self.strategy_layout.addWidget(self.symbol_label, 0, 0)
+        self.strategy_layout.addWidget(self.symbol_combo, 0, 1)
+        self.strategy_layout.addWidget(self.amount_label, 1, 0)
+        self.strategy_layout.addWidget(self.amount_input, 1, 1)
+        self.strategy_layout.addWidget(self.profit_price_label, 2, 0)
+        self.strategy_layout.addWidget(self.profit_price_input, 2, 1)
+        self.strategy_layout.addWidget(self.loss_price_label, 3, 0)
+        self.strategy_layout.addWidget(self.loss_price_input, 3, 1)
+        self.strategy_layout.addWidget(self.start_button, 4, 0)
+        self.strategy_layout.addWidget(self.stop_button, 4, 1)
+
+        self.start_button.clicked.connect(self.startalertMessage)
+        self.stop_button.clicked.connect(self.stopbuttonMessage)
+        # Add widgets to the order list tab
+        self.order_layout = QVBoxLayout(self.order_tab)
+        self.order_layout.addWidget(QLabel("Order List"))
+
+        # Add widgets to the profile tab
+        self.profile_layout = QVBoxLayout(self.profile_tab)
+        self.profile_layout.addWidget(QLabel("Profile"))
+
+    def resizeEvent(self, event):
+        self.tab_widget.setGeometry(0, 0, self.width(), self.height())
+        event.accept()
+    def stopbuttonMessage(self):
+        global Bot_status
+        Bot_status = False
+        QMessageBox.information(self, "Alert", "The bot is stoped")
+    def startalertMessage(self):
+        QMessageBox.information(self, "Alert", "The bot is started")
+        global Bot_status
+        global quantity
+        global symbol
+        global limit
+        global stop_loss
+        global strategy
+        strategy = "what is an best strategy for day trading?"
+
+        ma_25days = 0
+        ma_75days = 0
+        last_ma25days = 0
+        last_ma75days = 0
+        
+        while(Bot_status):
+            ma_25days, price25_list  = get_MN_25()
+            ma_75days, price75_list = get_MN_75()
+            current_price = last_price("BTC/USD")
+            print(current_price)
+            buy_price = current_price.ask_price
+            # print("current pirce:", buy_price)
+
+            # order(buy_price)
+            prompt  = "what is an apple?"
+            ans = chat_with_chatgpt(prompt)
+            print(ans)
+            # print("25 days for last and ma: ",last_ma25days,  ma_25days)
+            # print("The price list for 25 days:", price25_list)
+            
+            # print("75 days for last and ma: ", last_ma75days,  ma_75days)
+            # print("the price list for 75 days: ", price75_list)
+            # if ma_25days > ma_75days and last_ma25days <= last_ma75days and last_ma25days != 0:
+            #     print(11111)
+            # #     order(buy_price)
+            # # print("2222")
+            # last_ma25days = ma_25days
+            # last_ma75days = ma_75days
+
+
+def order(price):
+    stop_loss_pct = 0.03  # Stop loss percentage
+    take_profit_pct = 0.05  # Take profit percentage
+    trade_duration = pd.Timedelta(hours=1)  # Maximum trade duration
+
+    stop_loss_price = price * (1 - stop_loss_pct)
+    take_profit_price = price * (1 + take_profit_pct)
+
+    expiration_time = datetime.date.today() + trade_duration
+
+    api.submit_order(
+        symbol='BTCUSD',
+        qty=0.0134,  # Set the quantity as per your requirement
+        side='buy',
+        type='market',
+        time_in_force='gtc'  # Good 'til cancelled
+    )
+
+    # Place the stop loss order
+    # Place the take profit order
+    api.submit_order(
+        symbol='BTCUSD',
+        qty=0.0134,
+        side='sell',
+        type='limit',
+        time_in_force='gtc',
+        limit_price=take_profit_price
+    )
+
+    api.submit_order(
+        symbol='BTCUSD',
+        qty=0.0134,
+        side='sell',
+        type='stop_limit',
+        time_in_force='gtc',
+        stop_price=stop_loss_price,
+        limit_price=stop_loss_price  # Set the limit price equal to the stop price to trigger a market order
+    )
+# cancel_time = datetime.now() + trade_duration
+# api.cancel_order(buy_order.id)
+# api.cancel_order(stop_loss_order.id)
+# api.cancel_order(take_profit_order.id)
+
+def last_price(symbol):
+    client = CryptoHistoricalDataClient()
+
+    request_params = CryptoLatestQuoteRequest(symbol_or_symbols="BTC/USD")
+
+    latest_quote = client.get_crypto_latest_quote(request_params)
+
+    # print(latest_quote[symbol])
+
+    return latest_quote[symbol]
+
+def get_historical(start, end):
+    client = CryptoHistoricalDataClient()
+
+    request_params = CryptoBarsRequest(
+        symbol_or_symbols=["BTC/USD"],
+        timeframe=TimeFrame.Hour,
+        start=start,
+        end=end
+    )
+
+    bars = client.get_crypto_bars(request_params)
+
+    # print("Historical Data:")
+    # print(bars)
+
+    return bars['BTC/USD']
+
+def get_historical_day(start, end):
+    client = CryptoHistoricalDataClient()
+
+    request_params = CryptoBarsRequest(
+        symbol_or_symbols=["BTC/USD"],
+        timeframe=TimeFrame.Day,
+        start=start,
+        end=end
+    )
+
+    bars = client.get_crypto_bars(request_params)
+
+    # print("Historical Data:")
+    # print(bars)
+
+    return bars['BTC/USD']
+
+def calculate_sum_close(historical_data, window_size):
+    # print(historical_data)
+    # price_list = []
+    close_sum = sum(item.close for item in historical_data)
+    close_values = [item.close for item in historical_data]
+    # print("list", close_values)
+    mn = (close_sum/window_size)
+    # print("MN of 'close':", mn)
+    return mn, close_values
+
+def get_MN_25():
+    current_date = datetime.date.today()
+    previous_date_25 = current_date - datetime.timedelta(hours=600)
+
+    window_size = 10
+    historical_data = get_historical(previous_date_25, current_date)
+    # print(historical_data)
+
+    # Extract the 'close' prices from the historical data
+    close_prices = [bar.close for bar in historical_data]
+
+    # Create a DataFrame with the close prices
+    df = pd.DataFrame(close_prices, columns=['Close'])
+
+    # Calculate the SMA using the rolling window
+    sma = df['Close'].rolling(window=600).mean()
+    # print(sma)
+    sma_value = sma.values[-1]
+    # print(sma_value)
+
+    previous_25days = current_date - datetime.timedelta(days=25)
+    historial_25days = get_historical_day(previous_25days, current_date)
+    price_values = [bar.close  for bar in historial_25days]
+    
+    return sma_value, price_values
+
+def get_MN_75():
+    current_date = datetime.date.today()
+    previous_date_25 = current_date - datetime.timedelta(hours=1800)
+
+    window_size = 10
+    historical_data = get_historical(previous_date_25, current_date)
+    # print(historical_data)
+
+    # Extract the 'close' prices from the historical data
+    close_prices = [bar.close for bar in historical_data]
+
+    # Create a DataFrame with the close prices
+    df = pd.DataFrame(close_prices, columns=['Close'])
+
+    # Calculate the SMA using the rolling window
+    sma = df['Close'].rolling(window=1800).mean()
+    # print(sma)
+    sma_value = sma.values[-1]
+    # print(sma_value)
+    previous_75days = current_date - datetime.timedelta(days=75)
+    historial_75days = get_historical_day(previous_75days, current_date)
+    price_values = [bar.close  for bar in historial_75days]
+
+    return sma_value, price_values
+
+# def order(symbol, lower, upper):
+#     limit_order_data = LimitOrderRequest(
+#         symbol="BTC/USD",
+#         limit_price=10000,
+#         notional=10000,
+#         side=OrderSide.BUY,
+#         time_in_force=TimeInForce.IOC
+#     )
+
+#     limit_order = trading_client.submit_order(
+#         order_data=limit_order_data
+#     )
+#     return "123"
+def buy_order():
+    # symbol = 'BTC/USD'
+    # current_price = 35603.721 
+    symbol = 'SPY'
+    quantity = 300
+    current_price = 520
+    profit_target_percentage = 0.05  # 5%
+    stop_loss_percentage = 0.03  # 3%
+    take_profit_price = current_price * (1 + profit_target_percentage)
+    stop_loss_price = current_price * (1 - stop_loss_percentage)
+
+    print(take_profit_price, stop_loss_price)
+
+    order = api.submit_order(
+        symbol=symbol,
+        qty=quantity,
+        side='buy',  # 'buy' for a long position, 'sell' for a short position
+        type='limit',
+        order_class="oco",
+        time_in_force='gtc',  # Good 'til canceled
+        take_profit={'limit_price': take_profit_price},
+        stop_loss={'stop_price': stop_loss_price}
+    )
+    print(order)
+
+def chat_with_chatgpt(prompt):
+    openai.api_key = "sggggggk-yk4TIBiKc" "koessctyhU5T3BlbkFJz68IXN6mOfDhFkAXGkG3"    
+    response = openai.Completion.create(
+    engine="text-davinci-003",
+    prompt=prompt,
+    max_tokens=4000
+    )
+    return response.choices[0].text.strip()
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    login_page = LoginPage()
+    login_page.show()
+    sys.exit(app.exec_())
